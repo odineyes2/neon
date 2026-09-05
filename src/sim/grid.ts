@@ -34,3 +34,26 @@ export function cellToWorldPosition({ x, y, z }: CellCoord): { x: number; y: num
     z: z * CELL_SIZE.z,
   };
 }
+
+export interface PlotBounds {
+  x: number;
+  z: number;
+}
+
+// 부지는 항상 홀수 크기로 중앙(0,0)을 기준으로 사방 동일하게 확장된다.
+export function isWithinBounds({ x, y, z }: CellCoord, bounds: PlotBounds): boolean {
+  const halfX = (bounds.x - 1) / 2;
+  const halfZ = (bounds.z - 1) / 2;
+  return x >= -halfX && x <= halfX && z >= -halfZ && z <= halfZ && y >= 0 && y < MAX_HEIGHT;
+}
+
+const LATERAL_OFFSETS: ReadonlyArray<readonly [number, number]> = [
+  [1, 0],
+  [-1, 0],
+  [0, 1],
+  [0, -1],
+];
+
+export function lateralNeighbors({ x, y, z }: CellCoord): CellCoord[] {
+  return LATERAL_OFFSETS.map(([dx, dz]) => ({ x: x + dx, y, z: z + dz }));
+}

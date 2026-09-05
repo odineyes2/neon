@@ -1,12 +1,16 @@
 import * as THREE from 'three';
 import { createCameraRig } from './camera';
+import { createCellInstancePool } from './instancing';
+import { setupPlacement } from './placement';
 import { CELL_SIZE, MAX_BOUNDS } from '../sim/grid';
+import { useGameStore } from '../sim/store';
 
 const COLORS = {
   background: 0x0b0f0e,
   fog: 0x0b0f0e,
   ground: 0x1a2422,
   grid: 0x2c3a37,
+  buildable: 0x42e8dc,
 } as const;
 
 export function initScene(container: HTMLElement): void {
@@ -49,6 +53,44 @@ export function initScene(container: HTMLElement): void {
   (grid.material as THREE.Material).transparent = true;
   (grid.material as THREE.Material).opacity = 0.5;
   scene.add(grid);
+
+  function buildOutlineGeometry(bounds: { x: number; z: number }): THREE.BufferGeometry {
+    const halfX = (bounds.x * CELL_SIZE.x) / 2;
+    const halfZ = (bounds.z * CELL_SIZE.z) / 2;
+    const corners = new Float32Array([
+      -halfX, 0, -halfZ,
+      halfX, 0, -halfZ,
+      halfX, 0, halfZ,
+      -halfX, 0, halfZ,
+    ]);
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.BufferAttribute(corners, 3));
+    return geometry;
+  }
+
+  const buildableOutline = new THREE.LineLoop(
+    buildOutlineGeometry(useGameStore.getState().bounds),
+    new THREE.LineBasicMaterial({ color: COLORS.buildable, transparent: true, opacity: 0.8 })
+  );
+  buildableOutline.position.y = 0.01;
+  scene.add(buildableOutline);
+
+  function updateBuildableOutline(bounds: { x: number; z: number }): void {
+    const old = buildableOutline.geometry;
+    buildableOutline.geometry = buildOutlineGeometry(bounds);
+    old.dispose();
+  }
+
+  const pool = createCellInstancePool();
+  scene.add(pool.mesh);
+  pool.syncCells(useGameStore.getState().cells);
+
+  useGameStore.subscribe((state, prevState) => {
+    if (state.cells !== prevState.cells) pool.syncCells(state.cells);
+    if (state.bounds !== prevState.bounds) updateBuildableOutline(state.bounds);
+  });
+
+  setupPlacement({ scene, container, camera, ground, pool });
 
   function onResize(): void {
     const { clientWidth, clientHeight } = container;
