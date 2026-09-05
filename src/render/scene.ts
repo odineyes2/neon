@@ -1,6 +1,12 @@
 import * as THREE from 'three';
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { createCameraRig } from './camera';
 import { createCellInstancePool } from './instancing';
+import { createDayNightController } from './daynight';
+import { createPropSystem } from './props';
 import { setupPlacement } from './placement';
 import { CELL_SIZE, MAX_BOUNDS } from '../sim/grid';
 import { useGameStore } from '../sim/store';
@@ -14,7 +20,10 @@ const COLORS = {
 } as const;
 
 export function initScene(container: HTMLElement): void {
-  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  // 포스트프로세싱(블룸)을 쓰므로 렌더러 자체 MSAA는 끈다 — 안티앨리어싱은
+  // 컴포저의 최종 출력에서 처리하는 게 일반적이고, 렌더러 MSAA와 EffectComposer의
+  // 렌더타깃이 섞이면 프레임버퍼 관련 경고가 발생한다.
+  const renderer = new THREE.WebGLRenderer({ antialias: false });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.setSize(container.clientWidth, container.clientHeight);
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -85,23 +94,47 @@ export function initScene(container: HTMLElement): void {
   for (const mesh of pool.meshes) scene.add(mesh);
   pool.syncCells(useGameStore.getState().cells);
 
+  const props = createPropSystem();
+  for (const mesh of props.meshes) scene.add(mesh);
+  props.rebuild(useGameStore.getState().cells);
+
+  const dayNight = createDayNightController({ scene, sun, ambient, neonMaterials: props.neonMaterials });
+  dayNight.update(useGameStore.getState().tickCount % 24);
+
   useGameStore.subscribe((state, prevState) => {
-    if (state.cells !== prevState.cells) pool.syncCells(state.cells);
+    if (state.cells !== prevState.cells) {
+      pool.syncCells(state.cells);
+      props.rebuild(state.cells);
+    }
     if (state.bounds !== prevState.bounds) updateBuildableOutline(state.bounds);
+    if (state.tickCount !== prevState.tickCount) dayNight.update(state.tickCount % 24);
   });
 
   setupPlacement({ scene, container, camera, ground, pool });
+
+  const composer = new EffectComposer(renderer);
+  composer.addPass(new RenderPass(scene, camera));
+  const bloomPass = new UnrealBloomPass(
+    new THREE.Vector2(container.clientWidth, container.clientHeight),
+    0.55, // strength
+    0.4, // radius
+    0.9 // threshold: 이미시브(네온)만 번지고 일반 채도 높은 셸/외곽선은 번지지 않게
+  );
+  composer.addPass(bloomPass);
+  composer.addPass(new OutputPass());
 
   function onResize(): void {
     const { clientWidth, clientHeight } = container;
     camera.aspect = clientWidth / clientHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(clientWidth, clientHeight);
+    composer.setSize(clientWidth, clientHeight);
+    bloomPass.setSize(clientWidth, clientHeight);
   }
   window.addEventListener('resize', onResize);
 
   renderer.setAnimationLoop(() => {
     updateControls();
-    renderer.render(scene, camera);
+    composer.render();
   });
 }
