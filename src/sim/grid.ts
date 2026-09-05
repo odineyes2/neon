@@ -57,3 +57,10 @@ const LATERAL_OFFSETS: ReadonlyArray<readonly [number, number]> = [
 export function lateralNeighbors({ x, y, z }: CellCoord): CellCoord[] {
   return LATERAL_OFFSETS.map(([dx, dz]) => ({ x: x + dx, y, z: z + dz }));
 }
+
+// Set<string>과 Map<string, CellRecord> 양쪽 다 만족하는 최소 인터페이스.
+// 지지·채광 같은 순수 기하 판정은 셀에 무엇이 있는지(블록 종류)는 몰라도 되고,
+// 그 자리가 점유돼 있는지만 알면 된다.
+export interface CellIndex {
+  has(key: string): boolean;
+}

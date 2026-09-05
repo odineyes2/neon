@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import type { CellInstancePool } from './instancing';
 import { CELL_SIZE, type CellCoord, cellToWorldPosition } from '../sim/grid';
-import { canPlace } from '../sim/structure';
-import { useGameStore } from '../sim/store';
+import { BLOCK_REGISTRY } from '../sim/blocks';
+import { checkPlacement, useGameStore } from '../sim/store';
 
 const CLICK_MOVE_THRESHOLD_PX = 5;
 const INVALID_TOOLTIP_TIMEOUT_MS = 1600;
@@ -77,7 +77,7 @@ export function setupPlacement({ scene, container, camera, ground, pool }: Place
     pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
     raycaster.setFromCamera(pointer, camera);
 
-    const hits = raycaster.intersectObjects([pool.mesh, ground], false);
+    const hits = raycaster.intersectObjects([...pool.meshes, ground], false);
     if (hits.length === 0) return null;
     const hit = hits[0];
 
@@ -88,7 +88,7 @@ export function setupPlacement({ scene, container, camera, ground, pool }: Place
     }
 
     if (hit.instanceId === undefined || !hit.face) return null;
-    const baseCoord = pool.getCoordAt(hit.instanceId);
+    const baseCoord = pool.getCoordAt(hit.object as THREE.InstancedMesh, hit.instanceId);
     if (!baseCoord) return null;
 
     const n = hit.face.normal;
@@ -108,8 +108,9 @@ export function setupPlacement({ scene, container, camera, ground, pool }: Place
       return;
     }
 
-    const { cells, bounds } = useGameStore.getState();
-    const check = canPlace(cells, hover.placeCoord, bounds);
+    const { cells, bounds, credits, activeBlockId } = useGameStore.getState();
+    const block = BLOCK_REGISTRY[activeBlockId];
+    const check = checkPlacement(cells, hover.placeCoord, bounds, block, credits);
     const pos = cellToWorldPosition(hover.placeCoord);
     ghost.position.set(pos.x, pos.y + CELL_SIZE.y / 2, pos.z);
     ghost.visible = true;

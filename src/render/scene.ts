@@ -82,7 +82,7 @@ export function initScene(container: HTMLElement): void {
   }
 
   const pool = createCellInstancePool();
-  scene.add(pool.mesh);
+  for (const mesh of pool.meshes) scene.add(mesh);
   pool.syncCells(useGameStore.getState().cells);
 
   useGameStore.subscribe((state, prevState) => {
