@@ -22,6 +22,7 @@ export interface CellRecord {
 
 export interface CellInstancePool {
   meshes: THREE.InstancedMesh[];
+  materials: THREE.MeshStandardMaterial[];
   getCoordAt: (mesh: THREE.InstancedMesh, instanceId: number) => CellCoord | null;
   syncCells: (cells: ReadonlyMap<string, CellRecord>) => void;
 }
@@ -41,12 +42,14 @@ export function createCellInstancePool(): CellInstancePool {
   const dummy = new THREE.Object3D();
 
   const pools = new Map<BlockCategory, CategoryPool>();
+  const materials: THREE.MeshStandardMaterial[] = [];
   for (const category of Object.keys(CATEGORY_COLORS) as BlockCategory[]) {
     const material = new THREE.MeshStandardMaterial({
       color: CATEGORY_COLORS[category],
       roughness: 0.85,
       metalness: 0.05,
     });
+    materials.push(material);
     const mesh = new THREE.InstancedMesh(geometry, material, MAX_INSTANCES_PER_CATEGORY);
     mesh.count = 0;
     mesh.castShadow = true;
@@ -118,6 +121,7 @@ export function createCellInstancePool(): CellInstancePool {
 
   return {
     meshes: Array.from(pools.values(), (p) => p.mesh),
+    materials,
     getCoordAt,
     syncCells,
   };

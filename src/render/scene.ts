@@ -4,12 +4,15 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { createCameraRig } from './camera';
-import { createCellInstancePool } from './instancing';
+import { createCellInstancePool, type CellRecord } from './instancing';
 import { createDayNightController } from './daynight';
 import { createPropSystem } from './props';
+import { createOverlaySystem } from './overlays';
 import { setupPlacement } from './placement';
-import { CELL_SIZE, MAX_BOUNDS } from '../sim/grid';
-import { useGameStore } from '../sim/store';
+import { CELL_SIZE, MAX_BOUNDS, parseCellKey } from '../sim/grid';
+import { useGameStore, type OverlayMode } from '../sim/store';
+
+const XRAY_OPACITY = 0.18;
 
 const COLORS = {
   background: 0x0b0f0e,
@@ -90,22 +93,60 @@ export function initScene(container: HTMLElement): void {
     old.dispose();
   }
 
+  // 층 슬라이스로 가려진 셀은 렌더링/레이캐스트에서만 제외한다 — 지지·경제 등
+  // 시뮬레이션은 항상 store.cells 전체를 기준으로 계산한다 (슬라이스는 뷰일 뿐).
+  function visibleCells(state: ReturnType<typeof useGameStore.getState>): ReadonlyMap<string, CellRecord> {
+    if (state.floorSlice >= 23) return state.cells;
+    const filtered = new Map<string, CellRecord>();
+    for (const [key, record] of state.cells) {
+      if (parseCellKey(key).y <= state.floorSlice) filtered.set(key, record);
+    }
+    return filtered;
+  }
+
+  function effectiveOverlay(state: ReturnType<typeof useGameStore.getState>): OverlayMode {
+    if (state.overlayMode !== 'none') return state.overlayMode;
+    return state.xray ? 'light' : 'none';
+  }
+
   const pool = createCellInstancePool();
   for (const mesh of pool.meshes) scene.add(mesh);
-  pool.syncCells(useGameStore.getState().cells);
+  pool.syncCells(visibleCells(useGameStore.getState()));
 
   const props = createPropSystem();
   for (const mesh of props.meshes) scene.add(mesh);
-  props.rebuild(useGameStore.getState().cells);
+  props.rebuild(visibleCells(useGameStore.getState()));
+
+  const overlays = createOverlaySystem();
+  for (const mesh of overlays.meshes) scene.add(mesh);
+  overlays.rebuild(visibleCells(useGameStore.getState()), effectiveOverlay(useGameStore.getState()));
 
   const dayNight = createDayNightController({ scene, sun, ambient, neonMaterials: props.neonMaterials });
   dayNight.update(useGameStore.getState().tickCount % 24);
 
-  useGameStore.subscribe((state, prevState) => {
-    if (state.cells !== prevState.cells) {
-      pool.syncCells(state.cells);
-      props.rebuild(state.cells);
+  function applyXray(xray: boolean): void {
+    for (const material of pool.materials) {
+      material.transparent = xray;
+      material.opacity = xray ? XRAY_OPACITY : 1;
+      material.depthWrite = !xray;
     }
+  }
+
+  useGameStore.subscribe((state, prevState) => {
+    const cellsChanged = state.cells !== prevState.cells;
+    const sliceChanged = state.floorSlice !== prevState.floorSlice;
+    const overlayChanged =
+      state.overlayMode !== prevState.overlayMode || state.xray !== prevState.xray || cellsChanged || sliceChanged;
+
+    if (cellsChanged || sliceChanged) {
+      const visible = visibleCells(state);
+      pool.syncCells(visible);
+      props.rebuild(visible);
+    }
+    if (overlayChanged) {
+      overlays.rebuild(visibleCells(state), effectiveOverlay(state));
+    }
+    if (state.xray !== prevState.xray) applyXray(state.xray);
     if (state.bounds !== prevState.bounds) updateBuildableOutline(state.bounds);
     if (state.tickCount !== prevState.tickCount) dayNight.update(state.tickCount % 24);
   });

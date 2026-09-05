@@ -47,11 +47,63 @@ export function setupPlacement({ scene, container, camera, ground, pool }: Place
   `;
   document.body.appendChild(tooltip);
 
+  // 모바일: 탭으로 고스트를 미리 보고, 확인 버튼을 눌러야 실제로 배치된다
+  // (오조작 방지) [§5.4]. 데스크톱은 기존처럼 클릭 즉시 배치.
+  const confirmButton = document.createElement('button');
+  confirmButton.textContent = '여기에 짓기';
+  confirmButton.style.cssText = `
+    position: fixed;
+    display: none;
+    z-index: 15;
+    font: 13px/1.4 system-ui, 'Segoe UI', sans-serif;
+    padding: 8px 14px;
+    background: #42e8dc;
+    color: #0b0f0e;
+    border: none;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+  `;
+  document.body.appendChild(confirmButton);
+
   let hover: HoverTarget | null = null;
+  let pendingTouchTarget: HoverTarget | null = null;
   let downButton: number | null = null;
   let downX = 0;
   let downY = 0;
   let tooltipHideTimer: number | undefined;
+
+  function hideConfirmButton(): void {
+    pendingTouchTarget = null;
+    confirmButton.style.display = 'none';
+  }
+
+  function showConfirmButton(clientX: number, clientY: number): void {
+    confirmButton.style.left = `${clientX}px`;
+    confirmButton.style.top = `${clientY + 20}px`;
+    confirmButton.style.display = 'block';
+  }
+
+  function updateGhostFor(target: HoverTarget): boolean {
+    const { cells, bounds, credits, activeBlockId } = useGameStore.getState();
+    const block = BLOCK_REGISTRY[activeBlockId];
+    const check = checkPlacement(cells, target.placeCoord, bounds, block, credits);
+    const pos = cellToWorldPosition(target.placeCoord);
+    ghost.position.set(pos.x, pos.y + CELL_SIZE.y / 2, pos.z);
+    ghost.visible = true;
+    (ghost.material as THREE.MeshBasicMaterial).color.set(check.allowed ? 0x42e8dc : 0xff3d86);
+    return check.allowed;
+  }
+
+  confirmButton.addEventListener('click', () => {
+    if (!pendingTouchTarget) return;
+    const result = useGameStore.getState().placeCell(pendingTouchTarget.placeCoord);
+    if (!result.allowed && result.reason) {
+      showTooltip(result.reason, parseFloat(confirmButton.style.left), parseFloat(confirmButton.style.top));
+    }
+    hideConfirmButton();
+    ghost.visible = false;
+  });
 
   function showTooltip(text: string, clientX: number, clientY: number, timeout?: number): void {
     tooltip.textContent = text;
@@ -101,6 +153,7 @@ export function setupPlacement({ scene, container, camera, ground, pool }: Place
   }
 
   function onPointerMove(event: PointerEvent): void {
+    if (event.pointerType === 'touch') return; // 터치는 탭(포인터다운)에서만 갱신한다
     hover = pickHoverTarget(event.clientX, event.clientY);
     if (!hover) {
       ghost.visible = false;
@@ -108,16 +161,11 @@ export function setupPlacement({ scene, container, camera, ground, pool }: Place
       return;
     }
 
-    const { cells, bounds, credits, activeBlockId } = useGameStore.getState();
-    const block = BLOCK_REGISTRY[activeBlockId];
-    const check = checkPlacement(cells, hover.placeCoord, bounds, block, credits);
-    const pos = cellToWorldPosition(hover.placeCoord);
-    ghost.position.set(pos.x, pos.y + CELL_SIZE.y / 2, pos.z);
-    ghost.visible = true;
-    (ghost.material as THREE.MeshBasicMaterial).color.set(check.allowed ? 0x42e8dc : 0xff3d86);
-
-    if (!check.allowed && check.reason) {
-      showTooltip(check.reason, event.clientX, event.clientY);
+    const check = updateGhostFor(hover);
+    if (!check) {
+      const { cells, bounds, credits, activeBlockId } = useGameStore.getState();
+      const reason = checkPlacement(cells, hover.placeCoord, bounds, BLOCK_REGISTRY[activeBlockId], credits).reason;
+      if (reason) showTooltip(reason, event.clientX, event.clientY);
     } else {
       hideTooltip();
     }
@@ -127,6 +175,11 @@ export function setupPlacement({ scene, container, camera, ground, pool }: Place
     downButton = event.button;
     downX = event.clientX;
     downY = event.clientY;
+
+    if (event.pointerType === 'touch') {
+      const target = pickHoverTarget(event.clientX, event.clientY);
+      if (target) updateGhostFor(target);
+    }
   }
 
   function onPointerUp(event: PointerEvent): void {
@@ -138,6 +191,28 @@ export function setupPlacement({ scene, container, camera, ground, pool }: Place
 
     const target = pickHoverTarget(event.clientX, event.clientY);
     if (!target) return;
+
+    if (event.pointerType === 'touch') {
+      if (button !== 0) return;
+      const isSameAsPending =
+        pendingTouchTarget &&
+        pendingTouchTarget.placeCoord.x === target.placeCoord.x &&
+        pendingTouchTarget.placeCoord.y === target.placeCoord.y &&
+        pendingTouchTarget.placeCoord.z === target.placeCoord.z;
+
+      if (isSameAsPending) {
+        const result = useGameStore.getState().placeCell(target.placeCoord);
+        if (!result.allowed && result.reason) {
+          showTooltip(result.reason, event.clientX, event.clientY, INVALID_TOOLTIP_TIMEOUT_MS);
+        }
+        hideConfirmButton();
+        ghost.visible = false;
+      } else {
+        pendingTouchTarget = target;
+        showConfirmButton(event.clientX, event.clientY);
+      }
+      return;
+    }
 
     if (button === 0) {
       const result = useGameStore.getState().placeCell(target.placeCoord);

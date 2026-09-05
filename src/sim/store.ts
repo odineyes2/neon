@@ -4,6 +4,9 @@ import { type RuleCheck, canDemolish as canDemolishGeometry, canPlace as canPlac
 import { BLOCKS, BLOCK_REGISTRY, type BlockDef } from './blocks';
 import { tick as runTick } from './tick';
 import type { EconomyStats } from './economy';
+import { MAX_HEIGHT } from './grid';
+
+export type OverlayMode = 'none' | 'light' | 'access' | 'load' | 'noise' | 'pollution';
 
 export interface CellRecord {
   blockId: string;
@@ -47,11 +50,19 @@ interface GameStore {
   activeBlockId: string;
   paused: boolean;
 
+  // M4: 오버레이·UX
+  floorSlice: number; // 이 층까지만 보인다 (0 ~ MAX_HEIGHT-1)
+  xray: boolean;
+  overlayMode: OverlayMode;
+
   setActiveBlock: (blockId: string) => void;
   togglePaused: () => void;
   placeCell: (coord: CellCoord) => RuleCheck;
   removeCell: (coord: CellCoord) => RuleCheck;
   advanceTick: () => void;
+  setFloorSlice: (floor: number) => void;
+  toggleXray: () => void;
+  setOverlayMode: (mode: OverlayMode) => void;
 }
 
 export const useGameStore = create<GameStore>((set, get) => ({
@@ -63,6 +74,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
   stats: null,
   activeBlockId: BLOCKS[0].id,
   paused: false,
+
+  floorSlice: MAX_HEIGHT - 1,
+  xray: false,
+  overlayMode: 'none',
+
+  setFloorSlice: (floor) => set({ floorSlice: Math.max(0, Math.min(MAX_HEIGHT - 1, Math.round(floor))) }),
+  toggleXray: () => set((s) => ({ xray: !s.xray })),
+  setOverlayMode: (mode) => set({ overlayMode: mode }),
 
   setActiveBlock: (blockId) => {
     if (BLOCK_REGISTRY[blockId]) set({ activeBlockId: blockId });

@@ -1,6 +1,6 @@
 // 지지·철거 판정. three.js 비의존.
 
-import { type CellCoord, type CellIndex, type PlotBounds, cellKey, isWithinBounds, lateralNeighbors } from './grid';
+import { type CellCoord, type CellIndex, type PlotBounds, cellKey, isWithinBounds, lateralNeighbors, parseCellKey } from './grid';
 
 export function hasDirectSupport(cells: CellIndex, coord: CellCoord): boolean {
   return coord.y === 0 || cells.has(cellKey({ x: coord.x, y: coord.y - 1, z: coord.z }));
@@ -39,4 +39,52 @@ export function canDemolish(cells: CellIndex, coord: CellCoord): RuleCheck {
     return { allowed: false, reason: '위층이 얹혀 있어 철거할 수 없다' };
   }
   return { allowed: true };
+}
+
+export interface WeightedBlock {
+  weight: number;
+  structuralCapacity: number;
+}
+
+export interface CellRecord {
+  blockId: string;
+}
+
+// 같은 (x,z) 기둥에서 이 셀 위에 얹혀 이 셀이 떠받치는 하중의 합 [§3.2].
+// v1 단순화: 실제 지지 그래프가 아니라 같은 열의 위쪽 전부를 합산한다.
+export function loadAbove(
+  cells: ReadonlyMap<string, CellRecord>,
+  blocks: Readonly<Record<string, WeightedBlock>>,
+  coord: CellCoord
+): number {
+  let total = 0;
+  for (const [key, record] of cells) {
+    const other = parseCellKey(key);
+    if (other.x !== coord.x || other.z !== coord.z || other.y <= coord.y) continue;
+    total += blocks[record.blockId]?.weight ?? 0;
+  }
+  return total;
+}
+
+// 용량이 0인 블록(예: 좌판)은 애초에 위에 아무것도 얹을 수 없다는 뜻으로 취급한다.
+export function loadRatio(
+  cells: ReadonlyMap<string, CellRecord>,
+  blocks: Readonly<Record<string, WeightedBlock>>,
+  coord: CellCoord
+): number {
+  const record = cells.get(cellKey(coord));
+  if (!record) return 0;
+  const capacity = blocks[record.blockId]?.structuralCapacity ?? 0;
+  const load = loadAbove(cells, blocks, coord);
+  if (load === 0) return 0;
+  if (capacity <= 0) return Infinity;
+  return load / capacity;
+}
+
+export function isOverloaded(
+  cells: ReadonlyMap<string, CellRecord>,
+  blocks: Readonly<Record<string, WeightedBlock>>,
+  coord: CellCoord
+): boolean {
+  return loadRatio(cells, blocks, coord) > 1;
 }
