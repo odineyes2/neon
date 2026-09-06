@@ -19,9 +19,14 @@ const COLORS = {
   background: 0x0b0f0e,
   fog: 0x0b0f0e,
   ground: 0x1a2422,
+  farGround: 0x141d1b,
   grid: 0x2c3a37,
   buildable: 0x42e8dc,
 } as const;
+
+// 안개 far(80) 너머까지 덮어서, 가장자리가 안개 색에 완전히 묻힌 채 지평선처럼
+// 보이게 한다 — 실제로 얼마나 넓은지는 안개가 가려주므로 무한할 필요는 없다.
+const FAR_GROUND_SIZE = 400;
 
 export function initScene(container: HTMLElement): void {
   // 포스트프로세싱(블룸)을 쓰므로 렌더러 자체 MSAA는 끈다 — 안티앨리어싱은
@@ -36,7 +41,7 @@ export function initScene(container: HTMLElement): void {
 
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(COLORS.background);
-  scene.fog = new THREE.Fog(COLORS.fog, 20, 80);
+  scene.fog = new THREE.Fog(COLORS.fog, 20, 100);
 
   const { camera, update: updateControls } = createCameraRig(renderer.domElement);
 
@@ -52,6 +57,17 @@ export function initScene(container: HTMLElement): void {
   sun.shadow.camera.top = 20;
   sun.shadow.camera.bottom = -20;
   scene.add(sun);
+
+  // 부지 바깥으로 훨씬 넓은 "먼 지면"을 깔아 안개 속으로 사라지게 한다 — 이게
+  // 없으면 13유닛짜리 격자 바닥이 허공에 뜬 판자처럼 보인다.
+  const farGround = new THREE.Mesh(
+    new THREE.PlaneGeometry(FAR_GROUND_SIZE, FAR_GROUND_SIZE),
+    new THREE.MeshStandardMaterial({ color: COLORS.farGround, roughness: 1, fog: true })
+  );
+  farGround.rotation.x = -Math.PI / 2;
+  farGround.position.y = -0.05; // 격자 바닥과 겹쳐 z-파이팅 나지 않게 살짝 낮춘다
+  farGround.receiveShadow = true;
+  scene.add(farGround);
 
   const groundSize = MAX_BOUNDS.x * CELL_SIZE.x;
   const ground = new THREE.Mesh(
