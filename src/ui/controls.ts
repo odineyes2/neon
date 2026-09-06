@@ -4,11 +4,21 @@ import { useGameStore } from '../sim/store';
 
 // 1틱 = 게임 내 1시간, 실시간 1.2초 (배속 1x) [확정, §4.4].
 const TICK_INTERVAL_MS = 1200;
+// 자동 저장 20초 간격 [확정, §10].
+const AUTOSAVE_INTERVAL_MS = 20_000;
 
 export function mountControls(): void {
   window.setInterval(() => {
     if (!useGameStore.getState().paused) useGameStore.getState().advanceTick();
   }, TICK_INTERVAL_MS);
+
+  window.setInterval(() => {
+    useGameStore.getState().saveGame();
+  }, AUTOSAVE_INTERVAL_MS);
+
+  window.addEventListener('beforeunload', () => {
+    useGameStore.getState().saveGame();
+  });
 
   window.addEventListener('keydown', (event) => {
     if (event.code === 'Space') {

@@ -36,7 +36,11 @@ const ORDER_WEIGHTS = {
 
 const CAPACITY_MULTIPLIER_MIN = 0.2;
 const CAPACITY_MULTIPLIER_MAX = 1.5;
-const CAPACITY_MULTIPLIER_PIVOT = 100; // appeal 100 = 배율 1.0
+// [밸런스 패스, M6] 애초 피벗 100은 시작 매력(주택 하나 없이도 약 25, 빛 충족
+// 보너스 때문에)에서 배율이 0.25로 잡혀, 티어1(인구 12) 하나 해금하는 데도
+// 주택을 열 채 넘게 지어야 했다. 50으로 낮춰 초기 매력대에서 체감 성장이
+// 나오게 한다.
+const CAPACITY_MULTIPLIER_PIVOT = 50; // appeal 50 = 배율 1.0
 
 // 인구는 천천히 들어오고 빠르게 나간다 [확정, §4.2].
 export const POP_INFLOW_RATE = 0.04;

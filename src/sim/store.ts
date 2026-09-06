@@ -15,6 +15,9 @@ import {
   processDepartures,
   tryRecruit,
 } from './characters';
+import { deserialize, saveStateToCellsMap, saveStateToCharacterRoster, serialize } from './save';
+
+const SAVE_STORAGE_KEY = 'neon:save:v1'; // 키 이름은 저장 위치일 뿐, 페이로드 버전은 save.ts가 관리
 
 export type OverlayMode = 'none' | 'light' | 'access' | 'load' | 'noise' | 'pollution';
 
@@ -90,29 +93,37 @@ interface GameStore {
   setOverlayMode: (mode: OverlayMode) => void;
   resolveEvent: (choiceIndex: number) => void;
   clearDepartureNotice: () => void;
+  saveGame: () => boolean;
+  loadGame: () => boolean;
+  hasSavedGame: () => boolean;
+  resetGame: () => void;
 }
 
-export const useGameStore = create<GameStore>((set, get) => ({
+const INITIAL_STATE = {
   cells: new Map<string, CellRecord>(),
   bounds: { x: START_BOUNDS.x, z: START_BOUNDS.z },
   credits: STARTING_CREDITS,
   population: 0,
   tickCount: 0,
-  stats: null,
+  stats: null as EconomyStats | null,
   activeBlockId: BLOCKS[0].id,
   paused: false,
 
   floorSlice: MAX_HEIGHT - 1,
   xray: false,
-  overlayMode: 'none',
+  overlayMode: 'none' as OverlayMode,
 
   eventFlags: new Set<string>(),
   firedEventIds: new Set<string>(),
   modifiers: { appeal: 0, order: 0 },
-  pendingEvent: null,
-  characterRoster: new Map(),
-  departedCharacterIds: new Set(),
-  departureNotice: [],
+  pendingEvent: null as EventDef | null,
+  characterRoster: new Map() as CharacterRoster,
+  departedCharacterIds: new Set<string>(),
+  departureNotice: [] as string[],
+};
+
+export const useGameStore = create<GameStore>((set, get) => ({
+  ...INITIAL_STATE,
 
   clearDepartureNotice: () => set({ departureNotice: [] }),
 
@@ -221,6 +232,78 @@ export const useGameStore = create<GameStore>((set, get) => ({
       eventFlags: nextFlags,
       firedEventIds: new Set(firedEventIds).add(pendingEvent.id),
       pendingEvent: null,
+    });
+  },
+
+  saveGame: () => {
+    try {
+      const s = get();
+      const json = serialize({
+        tick: s.tickCount,
+        credits: s.credits,
+        population: s.population,
+        bounds: s.bounds,
+        cells: s.cells,
+        eventFlags: s.eventFlags,
+        firedEventIds: s.firedEventIds,
+        modifiers: s.modifiers,
+        characterRoster: s.characterRoster,
+        departedCharacterIds: s.departedCharacterIds,
+      });
+      window.localStorage.setItem(SAVE_STORAGE_KEY, json);
+      return true;
+    } catch {
+      return false; // 저장 공간이 없거나(시크릿 모드 등) 직렬화 실패
+    }
+  },
+
+  loadGame: () => {
+    try {
+      const json = window.localStorage.getItem(SAVE_STORAGE_KEY);
+      if (!json) return false;
+      const save = deserialize(json);
+      set({
+        tickCount: save.tick,
+        credits: save.credits,
+        population: save.population,
+        bounds: save.bounds,
+        cells: saveStateToCellsMap(save),
+        eventFlags: new Set(save.eventFlags),
+        firedEventIds: new Set(save.firedEventIds),
+        modifiers: save.modifiers,
+        characterRoster: saveStateToCharacterRoster(save),
+        departedCharacterIds: new Set(save.departedCharacterIds),
+        stats: null, // 다음 틱에 다시 계산된다
+        pendingEvent: null,
+      });
+      return true;
+    } catch {
+      return false; // 손상된 세이브 등 — 조용히 실패하고 지금 상태를 유지한다
+    }
+  },
+
+  hasSavedGame: () => {
+    try {
+      return window.localStorage.getItem(SAVE_STORAGE_KEY) !== null;
+    } catch {
+      return false;
+    }
+  },
+
+  resetGame: () => {
+    try {
+      window.localStorage.removeItem(SAVE_STORAGE_KEY);
+    } catch {
+      /* 저장 공간이 없으면 지울 것도 없다 */
+    }
+    set({
+      ...INITIAL_STATE,
+      cells: new Map(),
+      eventFlags: new Set(),
+      firedEventIds: new Set(),
+      characterRoster: new Map(),
+      departedCharacterIds: new Set(),
+      departureNotice: [],
     });
   },
 }));

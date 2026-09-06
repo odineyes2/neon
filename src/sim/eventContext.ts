@@ -1,9 +1,8 @@
 // 이벤트 조건 DSL이 참조할 수 있는 평평한 숫자 지표 모음. three.js 비의존.
 
-import { parseCellKey } from './grid';
 import type { BlockDef } from './blocks';
 import type { EconomyStats } from './economy';
-import { isOverloaded } from './structure';
+import { countOverloadedCells } from './structure';
 import { maxBuiltFloor } from './tiers';
 
 export interface CellRecord {
@@ -25,13 +24,11 @@ const PRESENCE_BLOCK_IDS = ['cargo_elevator', 'alley_shrine', 'nightclub', 'blac
 export function buildEventContext(params: BuildEventContextParams): Record<string, number> {
   const { cells, blocks, stats, population, credits, tickCount } = params;
 
-  let overloaded = 0;
+  const overloaded = countOverloadedCells(cells, blocks);
   const presence: Record<string, number> = {};
   for (const id of PRESENCE_BLOCK_IDS) presence[id] = 0;
 
-  for (const [key, record] of cells) {
-    const coord = parseCellKey(key);
-    if (isOverloaded(cells, blocks, coord)) overloaded++;
+  for (const record of cells.values()) {
     if ((PRESENCE_BLOCK_IDS as readonly string[]).includes(record.blockId)) {
       presence[record.blockId] = 1;
     }

@@ -90,11 +90,20 @@ function matches(target: SynergyTarget, block: BlockDef): boolean {
   return true;
 }
 
-function chebyshevDistanceOnFloor(a: CellCoord, b: CellCoord): number | null {
-  if (a.y !== b.y) return null;
+function chebyshevDistance2D(a: CellCoord, b: CellCoord): number {
   return Math.max(Math.abs(a.x - b.x), Math.abs(a.z - b.z));
 }
 
+interface FloorEntry {
+  key: string;
+  coord: CellCoord;
+  record: CellRecord;
+}
+
+// 시너지는 같은 층끼리만 적용되는데, 예전엔 소스 셀마다 전체 셀(n개)을 다시
+// 훑어서 총 O(k*n)이었다 — 4000셀에서 소스가 몇 백 개만 있어도 눈에 띄게
+// 느려졌다. 층별로 미리 묶어두면 소스마다 "그 층에 있는 셀"만 보면 되므로,
+// 실질적으로 층 하나의 크기(최대 13x13=169)로 스캔 범위가 줄어든다.
 export function computeSynergyEffects(
   cells: ReadonlyMap<string, CellRecord>,
   blocks: Readonly<Record<string, BlockDef>>,
@@ -103,34 +112,39 @@ export function computeSynergyEffects(
   const result = new Map<string, CellEffects>();
   if (rules.length === 0) return result;
 
-  const entries = Array.from(cells.entries());
+  const byFloor = new Map<number, FloorEntry[]>();
+  for (const [key, record] of cells) {
+    const coord = parseCellKey(key);
+    const floor = byFloor.get(coord.y);
+    const entry = { key, coord, record };
+    if (floor) floor.push(entry);
+    else byFloor.set(coord.y, [entry]);
+  }
 
-  for (const [sourceKey, sourceRecord] of entries) {
-    const applicableRules = rules.filter((rule) => rule.sourceBlockId === sourceRecord.blockId);
-    if (applicableRules.length === 0) continue;
+  for (const floorEntries of byFloor.values()) {
+    for (const source of floorEntries) {
+      const applicableRules = rules.filter((rule) => rule.sourceBlockId === source.record.blockId);
+      if (applicableRules.length === 0) continue;
 
-    const sourceCoord = parseCellKey(sourceKey);
+      for (const target of floorEntries) {
+        if (target.key === source.key) continue;
+        const targetBlock = blocks[target.record.blockId];
+        if (!targetBlock) continue;
+        const distance = chebyshevDistance2D(source.coord, target.coord);
 
-    for (const [targetKey, targetRecord] of entries) {
-      if (targetKey === sourceKey) continue;
-      const targetBlock = blocks[targetRecord.blockId];
-      if (!targetBlock) continue;
-      const targetCoord = parseCellKey(targetKey);
-      const distance = chebyshevDistanceOnFloor(sourceCoord, targetCoord);
-      if (distance === null) continue;
+        for (const rule of applicableRules) {
+          if (distance > rule.range) continue;
+          if (!matches(rule.target, targetBlock)) continue;
 
-      for (const rule of applicableRules) {
-        if (distance > rule.range) continue;
-        if (!matches(rule.target, targetBlock)) continue;
+          const targetEffects = result.get(target.key) ?? emptyEffects();
+          applyEffect(targetEffects, rule.effect);
+          result.set(target.key, targetEffects);
 
-        const targetEffects = result.get(targetKey) ?? emptyEffects();
-        applyEffect(targetEffects, rule.effect);
-        result.set(targetKey, targetEffects);
-
-        if (rule.reciprocal) {
-          const sourceEffects = result.get(sourceKey) ?? emptyEffects();
-          applyEffect(sourceEffects, rule.effect);
-          result.set(sourceKey, sourceEffects);
+          if (rule.reciprocal) {
+            const sourceEffects = result.get(source.key) ?? emptyEffects();
+            applyEffect(sourceEffects, rule.effect);
+            result.set(source.key, sourceEffects);
+          }
         }
       }
     }

@@ -88,3 +88,47 @@ export function isOverloaded(
 ): boolean {
   return loadRatio(cells, blocks, coord) > 1;
 }
+
+// loadAbove를 셀마다 부르면 셀당 O(n) 전체 스캔이라 총 O(n^2)이 된다 —
+// 4000셀에서 틱 하나가 10초 넘게 걸리는 원인이었다. 기둥(x,z)별로 묶어 위에서
+// 아래로 한 번만 누적하면 전체 O(n log n)으로 끝난다. 대량 계산(이벤트 조건,
+// 오버레이)에는 이 배치 버전을, 셀 하나만 필요할 땐 loadRatio를 쓴다.
+export function computeLoadRatioMap(
+  cells: ReadonlyMap<string, CellRecord>,
+  blocks: Readonly<Record<string, WeightedBlock>>
+): Map<string, number> {
+  const columns = new Map<string, CellCoord[]>();
+  for (const key of cells.keys()) {
+    const coord = parseCellKey(key);
+    const columnKey = `${coord.x},${coord.z}`;
+    const list = columns.get(columnKey);
+    if (list) list.push(coord);
+    else columns.set(columnKey, [coord]);
+  }
+
+  const result = new Map<string, number>();
+  for (const coords of columns.values()) {
+    coords.sort((a, b) => b.y - a.y); // 위층부터
+    let loadAboveThis = 0;
+    for (const coord of coords) {
+      const key = cellKey(coord);
+      const record = cells.get(key)!;
+      const capacity = blocks[record.blockId]?.structuralCapacity ?? 0;
+      const ratio = loadAboveThis === 0 ? 0 : capacity <= 0 ? Infinity : loadAboveThis / capacity;
+      result.set(key, ratio);
+      loadAboveThis += blocks[record.blockId]?.weight ?? 0;
+    }
+  }
+  return result;
+}
+
+export function countOverloadedCells(
+  cells: ReadonlyMap<string, CellRecord>,
+  blocks: Readonly<Record<string, WeightedBlock>>
+): number {
+  let count = 0;
+  for (const ratio of computeLoadRatioMap(cells, blocks).values()) {
+    if (ratio > 1) count++;
+  }
+  return count;
+}

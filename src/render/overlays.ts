@@ -3,7 +3,7 @@ import { CELL_SIZE, MAX_BOUNDS, MAX_HEIGHT, cellKey, cellToWorldPosition, parseC
 import { BLOCK_REGISTRY } from '../sim/blocks';
 import { computeAccess } from '../sim/access';
 import { exposedFaceCount, makeLightwellOpenCheck } from '../sim/light';
-import { loadRatio } from '../sim/structure';
+import { computeLoadRatioMap } from '../sim/structure';
 import { computeSpatialField } from '../sim/fields';
 import type { OverlayMode } from '../sim/store';
 
@@ -60,7 +60,8 @@ export function createOverlaySystem(): OverlaySystem {
       return;
     }
 
-    const access = mode === 'access' || mode === 'load' ? computeAccess(cells, BLOCK_REGISTRY) : null;
+    const access = mode === 'access' ? computeAccess(cells, BLOCK_REGISTRY) : null;
+    const loadRatios = mode === 'load' ? computeLoadRatioMap(cells, BLOCK_REGISTRY) : null;
     const isOpen = mode === 'light' ? makeLightwellOpenCheck(cells, BLOCK_REGISTRY) : undefined;
     const noiseField =
       mode === 'noise' ? computeSpatialField(cells, BLOCK_REGISTRY, (b) => b.emits.noise ?? 0, NOISE_RADIUS) : null;
@@ -80,7 +81,7 @@ export function createOverlaySystem(): OverlaySystem {
       } else if (mode === 'access') {
         value = access!.isolated.has(key) ? 1 : 0;
       } else if (mode === 'load') {
-        const ratio = loadRatio(cells, BLOCK_REGISTRY, coord);
+        const ratio = loadRatios!.get(key) ?? 0;
         value = Number.isFinite(ratio) ? ratio : 999;
       } else if (mode === 'noise') {
         value = noiseField!.get(key) ?? 0;
