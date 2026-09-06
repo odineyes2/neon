@@ -85,9 +85,9 @@ export function setupPlacement({ scene, container, camera, ground, pool }: Place
   }
 
   function updateGhostFor(target: HoverTarget): boolean {
-    const { cells, bounds, credits, activeBlockId } = useGameStore.getState();
+    const { cells, bounds, credits, activeBlockId, population } = useGameStore.getState();
     const block = BLOCK_REGISTRY[activeBlockId];
-    const check = checkPlacement(cells, target.placeCoord, bounds, block, credits);
+    const check = checkPlacement(cells, target.placeCoord, bounds, block, credits, population);
     const pos = cellToWorldPosition(target.placeCoord);
     ghost.position.set(pos.x, pos.y + CELL_SIZE.y / 2, pos.z);
     ghost.visible = true;
@@ -163,8 +163,15 @@ export function setupPlacement({ scene, container, camera, ground, pool }: Place
 
     const check = updateGhostFor(hover);
     if (!check) {
-      const { cells, bounds, credits, activeBlockId } = useGameStore.getState();
-      const reason = checkPlacement(cells, hover.placeCoord, bounds, BLOCK_REGISTRY[activeBlockId], credits).reason;
+      const { cells, bounds, credits, activeBlockId, population } = useGameStore.getState();
+      const reason = checkPlacement(
+        cells,
+        hover.placeCoord,
+        bounds,
+        BLOCK_REGISTRY[activeBlockId],
+        credits,
+        population
+      ).reason;
       if (reason) showTooltip(reason, event.clientX, event.clientY);
     } else {
       hideTooltip();

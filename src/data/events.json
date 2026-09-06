@@ -1,0 +1,264 @@
+[
+  {
+    "id": "first_customer",
+    "trigger": { "stat": "population", "op": ">=", "value": 5 },
+    "once": true,
+    "title": "첫 손님",
+    "speaker": "lao_chen",
+    "body": "누군가 노점 앞에 멈춰 섰다. 라오 첸이 국수 그릇을 내밀며 웃는다. \"성채는 이제 시작이야.\"",
+    "choices": [
+      { "text": "손님을 반긴다", "effects": { "appeal": 2 }, "setFlag": "welcomed_first_customer" }
+    ]
+  },
+  {
+    "id": "dark_floors",
+    "trigger": { "all": [
+      { "stat": "darkCells", "op": ">=", "value": 20 },
+      { "stat": "population", "op": ">=", "value": 40 }
+    ]},
+    "once": true,
+    "title": "빛이 들지 않는 층",
+    "speaker": "amei",
+    "body": "아메이가 계단참에서 손전등을 든 채 말한다. \"안쪽 스무 칸 넘게 해가 안 들어. 사람들이 기침을 달고 살아.\"",
+    "choices": [
+      { "text": "광정을 뚫는다", "cost": { "credits": 600 }, "effects": { "appeal": 12 }, "setFlag": "chose_lightwell" },
+      { "text": "그대로 둔다", "effects": { "order": -10 }, "setFlag": "chose_dark" }
+    ]
+  },
+  {
+    "id": "teetering_column",
+    "trigger": { "all": [
+      { "stat": "overloaded", "op": ">=", "value": 1 },
+      { "stat": "population", "op": ">=", "value": 40 }
+    ]},
+    "once": false,
+    "title": "휘청이는 기둥",
+    "speaker": "structural_engineer",
+    "body": "구조 기술자가 벽에 귀를 대고 있다. \"이 기둥, 위에 얹힌 무게를 못 버텨. 오늘내일해.\"",
+    "choices": [
+      { "text": "보강 공사를 맡긴다", "cost": { "credits": 500 }, "effects": { "appeal": 4 }, "setFlag": "reinforced_column" },
+      { "text": "일단 두고 본다", "effects": { "order": -8 }, "setFlag": "ignored_overload" }
+    ]
+  },
+  {
+    "id": "old_mans_stairs",
+    "trigger": { "all": [
+      { "stat": "builtFloors", "op": ">=", "value": 15 },
+      { "stat": "hasElevator", "op": "<", "value": 1 }
+    ]},
+    "once": true,
+    "title": "노인의 계단",
+    "speaker": "dr_wong",
+    "body": "닥터 웡이 헐떡이며 15층을 오른다. \"이 나이에 매일 이걸 오르내리라고? 환자가 못 온다.\"",
+    "choices": [
+      { "text": "화물 엘리베이터를 계획한다", "effects": { "appeal": 3 }, "setFlag": "elevator_planned" },
+      { "text": "계단으로 충분하다고 답한다", "effects": { "order": -5 }, "setFlag": "dismissed_elevator" }
+    ]
+  },
+  {
+    "id": "lost_in_the_halls",
+    "trigger": { "stat": "walkCost", "op": ">", "value": 6 },
+    "once": false,
+    "title": "길을 잃는 사람들",
+    "speaker": "kage",
+    "body": "카게의 부하 하나가 복도에서 길을 잃은 노인을 데려왔다. \"통로가 너무 꼬였어. 표시라도 해야지.\"",
+    "choices": [
+      { "text": "복도 표지판을 단다", "cost": { "credits": 200 }, "effects": { "appeal": 3 }, "setFlag": "added_signage" },
+      { "text": "익숙해지길 기다린다", "effects": { "order": -3 } }
+    ]
+  },
+  {
+    "id": "castles_daylight",
+    "trigger": { "all": [
+      { "stat": "lightSatisfaction", "op": ">=", "value": 0.9 },
+      { "stat": "population", "op": ">=", "value": 60 }
+    ]},
+    "once": true,
+    "title": "성채의 낮",
+    "speaker": "lao_chen",
+    "body": "드물게, 성채 안쪽까지 빛이 든다. 라오 첸이 국수집 문을 활짝 열어둔다. \"오늘은 냄새 대신 햇볕으로 손님을 부르자.\"",
+    "choices": [
+      { "text": "함께 자축한다", "effects": { "appeal": 5 }, "setFlag": "celebrated_daylight" },
+      { "text": "내일을 걱정한다", "effects": { "order": 3 } }
+    ]
+  },
+  {
+    "id": "quarter_report",
+    "trigger": { "stat": "day", "op": ">=", "value": 30 },
+    "once": true,
+    "title": "한 달째",
+    "speaker": "amei",
+    "body": "아메이가 장부를 넘기며 중얼거린다. \"한 달을 버텼네. 이 정도면 도시라고 불러도 되나?\"",
+    "choices": [
+      { "text": "아직 이르다고 답한다", "effects": { "order": 2 } },
+      { "text": "그렇다고 답한다", "effects": { "appeal": 2 } }
+    ]
+  },
+  {
+    "id": "black_market_whispers",
+    "trigger": { "stat": "hasBlackMarket", "op": ">=", "value": 1 },
+    "once": true,
+    "title": "암시장의 소문",
+    "speaker": "link",
+    "body": "링크가 목소리를 낮춘다. \"암시장이 들어왔다는 건, 이제 이 구역이 지도에 안 잡힌다는 뜻이야.\"",
+    "choices": [
+      { "text": "모르는 척한다", "effects": { "order": -3 }, "setFlag": "tolerated_black_market" },
+      { "text": "자경단에 알린다", "effects": { "order": 4, "appeal": -2 }, "setFlag": "reported_black_market" }
+    ]
+  },
+  {
+    "id": "nightclub_noise_complaints",
+    "trigger": { "all": [
+      { "stat": "hasNightclub", "op": ">=", "value": 1 },
+      { "stat": "order", "op": "<", "value": 40 }
+    ]},
+    "once": true,
+    "title": "밤새 우는 벽",
+    "speaker": "seraphim",
+    "body": "세라핌이 어깨를 으쓱한다. \"손님은 넘치는데, 위층 사람들은 잠을 못 잔다더라.\"",
+    "choices": [
+      { "text": "방음벽 공사를 지원한다", "cost": { "credits": 300 }, "effects": { "order": 5 }, "setFlag": "soundproofed_club" },
+      { "text": "장사는 장사라고 답한다", "effects": { "appeal": 2, "order": -4 } }
+    ]
+  },
+  {
+    "id": "shrine_dedication",
+    "trigger": { "stat": "hasShrine", "op": ">=", "value": 1 },
+    "once": true,
+    "title": "향 하나",
+    "speaker": "lao_chen",
+    "body": "골목 사당 앞에 향이 피어오른다. 라오 첸이 손을 모은다. \"여기까지 온 사람들 몫이다.\"",
+    "choices": [
+      { "text": "함께 절한다", "effects": { "order": 3 }, "setFlag": "honored_shrine" }
+    ]
+  },
+  {
+    "id": "isolated_souls",
+    "trigger": { "all": [
+      { "stat": "isolatedCells", "op": ">=", "value": 3 },
+      { "stat": "population", "op": ">=", "value": 50 }
+    ]},
+    "once": false,
+    "title": "고립된 사람들",
+    "speaker": "amei",
+    "body": "아메이가 명단을 짚는다. \"이 세 집, 계단이 끊겨서 일주일째 연락이 안 돼.\"",
+    "choices": [
+      { "text": "접근로를 뚫는다", "cost": { "credits": 400 }, "effects": { "appeal": 4 }, "setFlag": "reconnected_isolated" },
+      { "text": "떠나든 말든 둔다", "effects": { "order": -6 } }
+    ]
+  },
+  {
+    "id": "credit_crunch",
+    "trigger": { "all": [
+      { "stat": "credits", "op": "<", "value": 100 },
+      { "stat": "population", "op": ">=", "value": 20 }
+    ]},
+    "once": false,
+    "title": "빈 주머니",
+    "speaker": "link",
+    "body": "링크가 계산기를 던지듯 내려놓는다. \"이번 달 넘기기도 빠듯해. 뭐라도 팔아야 하나.\"",
+    "choices": [
+      { "text": "허리띠를 졸라맨다", "effects": { "order": -2 }, "setFlag": "tightened_belt" }
+    ]
+  },
+  {
+    "id": "power_outage",
+    "trigger": { "all": [
+      { "stat": "powerBalance", "op": "<", "value": 0 },
+      { "stat": "population", "op": ">=", "value": 20 }
+    ]},
+    "once": false,
+    "title": "정전",
+    "speaker": "dr_wong",
+    "body": "복도 조명이 한꺼번에 꺼진다. 닥터 웡이 손전등을 찾아 더듬는다. \"발전기 하나 더 있어야겠어.\"",
+    "choices": [
+      { "text": "발전 설비를 늘리기로 한다", "effects": { "appeal": 2 }, "setFlag": "noted_power_shortage" },
+      { "text": "촛불로 버틴다", "effects": { "order": -3 } }
+    ]
+  },
+  {
+    "id": "water_shortage",
+    "trigger": { "all": [
+      { "stat": "waterBalance", "op": "<", "value": 0 },
+      { "stat": "population", "op": ">=", "value": 20 }
+    ]},
+    "once": false,
+    "title": "물이 끊기다",
+    "speaker": "plumber",
+    "body": "배관공이 마른 수도꼭지를 두드린다. \"탱크가 부족해. 이대로면 옥상마다 줄을 서야 할걸.\"",
+    "choices": [
+      { "text": "물탱크를 늘리기로 한다", "effects": { "appeal": 2 }, "setFlag": "noted_water_shortage" },
+      { "text": "빗물로 버틴다", "effects": { "order": -3 } }
+    ]
+  },
+  {
+    "id": "vertical_city",
+    "trigger": { "stat": "population", "op": ">=", "value": 28 },
+    "once": true,
+    "title": "수직 도시",
+    "speaker": "kage",
+    "body": "카게가 옥상에서 성채를 내려다본다. \"이제 골목이 아니라 도시야. 위로, 위로 쌓인.\"",
+    "choices": [
+      { "text": "동의한다", "effects": { "appeal": 2 } }
+    ]
+  },
+  {
+    "id": "the_keep",
+    "trigger": { "stat": "population", "op": ">=", "value": 55 },
+    "once": true,
+    "title": "성채라 부를 만큼",
+    "speaker": "seraphim",
+    "body": "세라핌이 처음으로 이곳을 \"성채\"라 부른다. \"이 정도면 이름값은 하네.\"",
+    "choices": [
+      { "text": "그 이름을 받아들인다", "effects": { "order": 2 }, "setFlag": "named_the_keep" }
+    ]
+  },
+  {
+    "id": "autonomous_zone",
+    "trigger": { "stat": "population", "op": ">=", "value": 95 },
+    "once": true,
+    "title": "자치 구역",
+    "speaker": "link",
+    "body": "링크가 지도에서 이 구역을 지운다. \"공식적으론 존재하지 않아. 그래서 더 자유롭지.\"",
+    "choices": [
+      { "text": "그 자유를 받아들인다", "effects": { "appeal": 3, "order": -3 } },
+      { "text": "질서를 더 세운다", "effects": { "order": 5 } }
+    ]
+  },
+  {
+    "id": "megabuilding_horizon",
+    "trigger": { "all": [
+      { "stat": "builtFloors", "op": ">=", "value": 13 },
+      { "stat": "population", "op": ">=", "value": 170 }
+    ]},
+    "once": true,
+    "title": "메가빌딩의 그림자",
+    "speaker": "structural_engineer",
+    "body": "구조 기술자가 도면을 펼친다. \"코어 하나면, 이 성채가 진짜 빌딩이 돼.\"",
+    "choices": [
+      { "text": "코어 건설을 준비한다", "effects": { "appeal": 5 }, "setFlag": "megabuilding_prepared" }
+    ]
+  },
+  {
+    "id": "hundred_souls",
+    "trigger": { "stat": "population", "op": ">=", "value": 100 },
+    "once": true,
+    "title": "백 명째",
+    "speaker": "amei",
+    "body": "아메이가 명단에 백 번째 이름을 적는다. \"처음엔 컨테이너 하나였는데.\"",
+    "choices": [
+      { "text": "그 이름을 기억한다", "effects": { "appeal": 3 }, "setFlag": "remembered_hundredth" }
+    ]
+  },
+  {
+    "id": "quiet_before_core",
+    "trigger": { "stat": "hasMegabuildingCore", "op": ">=", "value": 1 },
+    "once": true,
+    "title": "코어가 선 날",
+    "speaker": "lao_chen",
+    "body": "코어가 완공되던 날, 성채 전체의 불이 동시에 켜졌다. 라오 첸이 국수 그릇을 들어 올린다. \"이제, 이걸 뭐라고 불러야 할까.\"",
+    "choices": [
+      { "text": "함께 건배한다", "effects": { "appeal": 10, "order": 10 }, "setFlag": "core_completed" }
+    ]
+  }
+]

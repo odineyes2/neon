@@ -1,7 +1,4 @@
-// 인접 시너지: 블록 쌍/카테고리 기반 효과. three.js 비의존.
-//
-// 실제 콘텐츠(국수집↔노점, 나이트클럽→주거 등, §4.3)는 해당 블록들이 생기는
-// M5에서 채워진다. 여기서는 그 규칙들을 표현할 수 있는 일반 메커니즘만 둔다.
+// 인접 시너지: 블록 쌍/카테고리 기반 효과. three.js 비의존. 콘텐츠는 §4.3 예시.
 
 import { type CellCoord, parseCellKey } from './grid';
 import type { BlockDef } from './blocks';
@@ -13,7 +10,8 @@ export interface CellRecord {
 export type SynergyEffect =
   | { type: 'income_multiplier'; delta: number }
   | { type: 'appeal_delta'; delta: number }
-  | { type: 'order_delta'; delta: number };
+  | { type: 'order_delta'; delta: number }
+  | { type: 'pollution_delta'; delta: number };
 
 export interface SynergyTarget {
   blockId?: string;
@@ -29,23 +27,61 @@ export interface SynergyRule {
   reciprocal?: boolean; // true면 대상도 같은 효과를 소스에 되돌려준다 (상호 시너지)
 }
 
-// 콘텐츠가 채워지기 전까지는 비어 있다.
-export const SYNERGY_RULES: readonly SynergyRule[] = [];
+export const SYNERGY_RULES: readonly SynergyRule[] = [
+  {
+    id: 'alley_market',
+    sourceBlockId: 'noodle_shop',
+    target: { blockId: 'street_stall' },
+    range: 1,
+    effect: { type: 'income_multiplier', delta: 0.15 },
+    reciprocal: true,
+  },
+  {
+    id: 'nightclub_noise',
+    sourceBlockId: 'nightclub',
+    target: { category: 'residential' },
+    range: 1,
+    effect: { type: 'appeal_delta', delta: -12 },
+  },
+  {
+    id: 'clinic_care',
+    sourceBlockId: 'clinic',
+    target: { category: 'residential' },
+    range: 1,
+    effect: { type: 'appeal_delta', delta: 6 },
+  },
+  {
+    id: 'shrine_order',
+    sourceBlockId: 'alley_shrine',
+    target: { category: 'residential' },
+    range: 2,
+    effect: { type: 'order_delta', delta: 4 },
+  },
+  {
+    id: 'server_heat',
+    sourceBlockId: 'server_farm',
+    target: { blockId: 'server_farm' },
+    range: 1,
+    effect: { type: 'pollution_delta', delta: 2 },
+  },
+];
 
 export interface CellEffects {
   incomeMultiplier: number;
   appealDelta: number;
   orderDelta: number;
+  pollutionDelta: number;
 }
 
 function emptyEffects(): CellEffects {
-  return { incomeMultiplier: 1, appealDelta: 0, orderDelta: 0 };
+  return { incomeMultiplier: 1, appealDelta: 0, orderDelta: 0, pollutionDelta: 0 };
 }
 
 function applyEffect(effects: CellEffects, effect: SynergyEffect): void {
   if (effect.type === 'income_multiplier') effects.incomeMultiplier *= 1 + effect.delta;
   else if (effect.type === 'appeal_delta') effects.appealDelta += effect.delta;
   else if (effect.type === 'order_delta') effects.orderDelta += effect.delta;
+  else if (effect.type === 'pollution_delta') effects.pollutionDelta += effect.delta;
 }
 
 function matches(target: SynergyTarget, block: BlockDef): boolean {

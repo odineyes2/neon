@@ -14,6 +14,7 @@ const CATEGORY_COLORS: Record<BlockCategory, number> = {
   utility: 0x4a5a58,
   access: 0x6b7674,
   civic: 0x42e8dc,
+  lightwell: 0xbfeee9,
 };
 
 export interface CellRecord {

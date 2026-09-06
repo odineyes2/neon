@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { CELL_SIZE, MAX_BOUNDS, MAX_HEIGHT, cellKey, cellToWorldPosition, parseCellKey } from '../sim/grid';
 import { BLOCK_REGISTRY } from '../sim/blocks';
 import { computeAccess } from '../sim/access';
-import { exposedFaceCount } from '../sim/light';
+import { exposedFaceCount, makeLightwellOpenCheck } from '../sim/light';
 import { loadRatio } from '../sim/structure';
 import { computeSpatialField } from '../sim/fields';
 import type { OverlayMode } from '../sim/store';
@@ -61,6 +61,7 @@ export function createOverlaySystem(): OverlaySystem {
     }
 
     const access = mode === 'access' || mode === 'load' ? computeAccess(cells, BLOCK_REGISTRY) : null;
+    const isOpen = mode === 'light' ? makeLightwellOpenCheck(cells, BLOCK_REGISTRY) : undefined;
     const noiseField =
       mode === 'noise' ? computeSpatialField(cells, BLOCK_REGISTRY, (b) => b.emits.noise ?? 0, NOISE_RADIUS) : null;
     const pollutionField =
@@ -75,7 +76,7 @@ export function createOverlaySystem(): OverlaySystem {
       let value = 0;
 
       if (mode === 'light') {
-        value = exposedFaceCount(cells, coord) === 0 ? 1 : 0;
+        value = exposedFaceCount(cells, coord, isOpen) === 0 ? 1 : 0;
       } else if (mode === 'access') {
         value = access!.isolated.has(key) ? 1 : 0;
       } else if (mode === 'load') {

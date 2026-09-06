@@ -9,7 +9,7 @@ import { parseCellKey } from './grid';
 import type { BlockDef } from './blocks';
 import type { AccessResult } from './access';
 import { averageWalkCost } from './access';
-import { exposedFaceCount } from './light';
+import { exposedFaceCount, makeLightwellOpenCheck } from './light';
 import { lightAppealDelta } from './light';
 import type { CellEffects } from './adjacency';
 import { getCellEffects } from './adjacency';
@@ -63,6 +63,7 @@ export interface EconomyStats {
   darkCellCount: number;
   isolatedCellCount: number;
   totalCellCount: number;
+  lightSatisfaction: number;
 }
 
 function resourceBalance(flow: number): { supply: number; demand: number } {
@@ -74,16 +75,24 @@ function capacityMultiplier(appeal: number): number {
   return Math.min(CAPACITY_MULTIPLIER_MAX, Math.max(CAPACITY_MULTIPLIER_MIN, raw));
 }
 
+export interface PermanentModifiers {
+  appeal: number;
+  order: number;
+}
+
 export interface ComputeEconomyInputs {
   cells: ReadonlyMap<string, CellRecord>;
   blocks: Readonly<Record<string, BlockDef>>;
   access: AccessResult;
   synergy: ReadonlyMap<string, CellEffects>;
   population: number;
+  // 이벤트 선택지에서 온 영구 효과 [§8.1 modifiers]. 매력에 반영되어야 수용력에도
+  // 정상적으로 파급되므로, 사후에 더하지 않고 여기서 합산에 포함시킨다.
+  modifiers?: PermanentModifiers;
 }
 
 export function computeEconomyStats(inputs: ComputeEconomyInputs): EconomyStats {
-  const { cells, blocks, access, synergy, population } = inputs;
+  const { cells, blocks, access, synergy, population, modifiers } = inputs;
 
   let powerSupply = 0;
   let powerDemand = 0;
@@ -99,13 +108,15 @@ export function computeEconomyStats(inputs: ComputeEconomyInputs): EconomyStats 
   let darkCellCount = 0;
   let needsLightTotal = 0;
   let needsLightLit = 0;
+  let pollutionDelta = 0;
+  const isOpen = makeLightwellOpenCheck(cells, blocks);
 
   for (const [key, record] of cells) {
     const block = blocks[record.blockId];
     if (!block) continue;
 
     const coord: CellCoord = parseCellKey(key);
-    const isDark = exposedFaceCount(cells, coord) === 0;
+    const isDark = exposedFaceCount(cells, coord, isOpen) === 0;
     if (isDark) darkCellCount++;
     if (block.lightPref === 'NEEDS_LIGHT') {
       needsLightTotal++;
@@ -131,8 +142,10 @@ export function computeEconomyStats(inputs: ComputeEconomyInputs): EconomyStats 
     housingCapacityRaw += block.provides.housing ?? 0;
     orderDelta += (block.provides.order ?? 0) + effects.orderDelta;
     appealSum += (block.provides.appeal ?? 0) + effects.appealDelta + lightAppealDelta(isDark, block.lightPref);
+    pollutionDelta += effects.pollutionDelta;
   }
 
+  pollution = Math.max(0, pollution + pollutionDelta);
   const totalCellCount = cells.size;
   const isolatedCellCount = access.isolated.size;
   const walkCost = averageWalkCost(access);
@@ -142,7 +155,8 @@ export function computeEconomyStats(inputs: ComputeEconomyInputs): EconomyStats 
 
   const appeal =
     BASE_APPEAL +
-    appealSum -
+    appealSum +
+    (modifiers?.appeal ?? 0) -
     pollution * APPEAL_WEIGHTS.pollution -
     noise * APPEAL_WEIGHTS.noise -
     walkCost * APPEAL_WEIGHTS.walkCost +
@@ -150,7 +164,8 @@ export function computeEconomyStats(inputs: ComputeEconomyInputs): EconomyStats 
 
   const order =
     BASE_ORDER +
-    orderDelta -
+    orderDelta +
+    (modifiers?.order ?? 0) -
     populationPressure * ORDER_WEIGHTS.populationPressure -
     pollution * ORDER_WEIGHTS.pollution -
     darkCellRatio * ORDER_WEIGHTS.darkCellRatio;
@@ -169,6 +184,7 @@ export function computeEconomyStats(inputs: ComputeEconomyInputs): EconomyStats 
     housingCapacityRaw,
     housingCapacity,
     averageWalkCost: walkCost,
+    lightSatisfaction,
     darkCellCount,
     isolatedCellCount,
     totalCellCount,

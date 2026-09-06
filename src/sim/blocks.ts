@@ -3,7 +3,7 @@
 import blocksData from '../data/blocks.json';
 
 export type LightPref = 'NEEDS_LIGHT' | 'INDIFFERENT' | 'PREFERS_DARK';
-export type BlockCategory = 'residential' | 'commerce' | 'utility' | 'access' | 'civic';
+export type BlockCategory = 'residential' | 'commerce' | 'utility' | 'access' | 'civic' | 'lightwell';
 
 export interface BlockDef {
   id: string;

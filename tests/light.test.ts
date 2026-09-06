@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { cellKey } from '../src/sim/grid';
-import { exposedFaceCount, isDarkCell, lightAppealDelta } from '../src/sim/light';
+import { exposedFaceCount, isDarkCell, lightAppealDelta, makeLightwellOpenCheck } from '../src/sim/light';
+import type { BlockDef } from '../src/sim/blocks';
 
 describe('exposedFaceCount', () => {
   it('is fully exposed (5 faces) for a lone ground cell', () => {
@@ -34,6 +35,25 @@ describe('exposedFaceCount', () => {
       cellKey({ x: 0, y: 2, z: 0 }),
     ]);
     expect(isDarkCell(cells, center)).toBe(true);
+  });
+});
+
+describe('makeLightwellOpenCheck', () => {
+  const blocks: Record<string, BlockDef> = {
+    room: { category: 'residential' } as BlockDef,
+    shaft: { category: 'lightwell' } as BlockDef,
+  };
+
+  it('treats a lightwell neighbor as open even though the cell is occupied', () => {
+    const center = { x: 0, y: 0, z: 0 };
+    const cells = new Map([
+      [cellKey(center), { blockId: 'room' }],
+      [cellKey({ x: 1, y: 0, z: 0 }), { blockId: 'shaft' }],
+      [cellKey({ x: -1, y: 0, z: 0 }), { blockId: 'room' }],
+    ]);
+    const isOpen = makeLightwellOpenCheck(cells, blocks);
+    // 광정 쪽(+x)은 열려 있고, 진짜 방(-x)은 막혀 있다.
+    expect(exposedFaceCount(cells, center, isOpen)).toBe(4); // 5면 중 -x만 막힘
   });
 });
 
