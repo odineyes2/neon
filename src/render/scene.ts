@@ -6,6 +6,7 @@ import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { createCameraRig } from './camera';
 import { createCellInstancePool, type CellRecord } from './instancing';
 import { createDayNightController } from './daynight';
+import { createSkySystem } from './sky';
 import { createPropSystem } from './props';
 import { createOverlaySystem } from './overlays';
 import { setupPlacement } from './placement';
@@ -109,6 +110,9 @@ export function initScene(container: HTMLElement): void {
     return state.xray ? 'light' : 'none';
   }
 
+  const sky = createSkySystem();
+  for (const mesh of sky.meshes) scene.add(mesh);
+
   const pool = createCellInstancePool();
   for (const mesh of pool.meshes) scene.add(mesh);
   pool.syncCells(visibleCells(useGameStore.getState()));
@@ -121,7 +125,7 @@ export function initScene(container: HTMLElement): void {
   for (const mesh of overlays.meshes) scene.add(mesh);
   overlays.rebuild(visibleCells(useGameStore.getState()), effectiveOverlay(useGameStore.getState()));
 
-  const dayNight = createDayNightController({ scene, sun, ambient, neonMaterials: props.neonMaterials });
+  const dayNight = createDayNightController({ scene, sun, ambient, neonMaterials: props.neonMaterials, sky });
   dayNight.update(useGameStore.getState().tickCount % 24);
 
   function applyXray(xray: boolean): void {

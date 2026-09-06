@@ -16,7 +16,7 @@ export function createCameraRig(domElement: HTMLElement): CameraRig {
     50,
     domElement.clientWidth / domElement.clientHeight,
     0.1,
-    500
+    600 // 스카이돔(반지름 450)이 카메라 궤도(최대 60) 밖에서도 잘리지 않을 여유
   );
   camera.position.set(10, 10, 10);
 
