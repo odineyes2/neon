@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { CELL_SIZE, type CellCoord, MAX_BOUNDS, MAX_HEIGHT, cellToWorldPosition, parseCellKey } from '../sim/grid';
 import { BLOCK_REGISTRY, type BlockCategory } from '../sim/blocks';
+import { loadDataTexture, loadTexture } from './assetLibrary';
+import { CATEGORY_SURFACE_TEXTURE_PATHS, surfaceTextureUrl } from './assetManifest';
 
 // 최대 부지(13x13) x 최대 높이(24)를 한 카테고리가 전부 채우는 극단적인 경우까지 넉넉히.
 const MAX_INSTANCES_PER_CATEGORY = MAX_BOUNDS.x * MAX_BOUNDS.z * MAX_HEIGHT;
@@ -16,6 +18,29 @@ const CATEGORY_COLORS: Record<BlockCategory, number> = {
   civic: 0x42e8dc,
   lightwell: 0xbfeee9,
 };
+
+// 셸(0.94배 박스)은 그대로 두고 재질에 맵만 입힌다. 지오메트리를 바꾸면
+// placement.ts의 레이캐스트 면 법선 계산(축 정렬 가정)이 깨지므로 여기서는
+// 절대 geometry를 교체하지 않는다 — 텍스처만 비동기로 갈아끼운다.
+function applySurfaceTexture(material: THREE.MeshStandardMaterial, category: BlockCategory): void {
+  const prefix = CATEGORY_SURFACE_TEXTURE_PATHS[category];
+  void loadTexture(surfaceTextureUrl(prefix, 'albedo')).then((map) => {
+    if (!map) return;
+    map.repeat.set(1, 1);
+    material.map = map;
+    material.needsUpdate = true;
+  });
+  void loadDataTexture(surfaceTextureUrl(prefix, 'normal')).then((map) => {
+    if (!map) return;
+    material.normalMap = map;
+    material.needsUpdate = true;
+  });
+  void loadDataTexture(surfaceTextureUrl(prefix, 'roughness')).then((map) => {
+    if (!map) return;
+    material.roughnessMap = map;
+    material.needsUpdate = true;
+  });
+}
 
 export interface CellRecord {
   blockId: string;
@@ -51,6 +76,7 @@ export function createCellInstancePool(): CellInstancePool {
       metalness: 0.05,
     });
     materials.push(material);
+    applySurfaceTexture(material, category);
     const mesh = new THREE.InstancedMesh(geometry, material, MAX_INSTANCES_PER_CATEGORY);
     mesh.count = 0;
     mesh.castShadow = true;
